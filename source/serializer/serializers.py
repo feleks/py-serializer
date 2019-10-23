@@ -15,10 +15,11 @@ class DictSerializer(Serializer):
         key_class = typing.__args__[0]
         value_class = typing.__args__[1]
 
-        self._init_breadcrumbs('Dict[{}, {}]'.format(key_class.__name__, value_class.__name__), prev_breadcrumbs)
+        # self._init_breadcrumbs('Dict[{}, {}]'.format(key_class.__name__, value_class.__name__), prev_breadcrumbs)
+        self._init_breadcrumbs('Dict', prev_breadcrumbs)
 
-        self.key_formatter: Serializer = self._create_serializer(key_class, '(KEY)')
-        self.value_formatter: Serializer = self._create_serializer(value_class, '(VALUE)')
+        self.key_formatter: Serializer = self._create_serializer(key_class, '[key]')
+        self.value_formatter: Serializer = self._create_serializer(value_class, '[value]')
 
     def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
         if not isinstance(instance, dict):
@@ -56,9 +57,9 @@ class ListSerializer(Serializer):
 
     def __init__(self, typing, prev_breadcrumbs: str = None):
         list_class = typing.__args__[0]
-        self._init_breadcrumbs('List[{}]'.format(list_class.__name__), prev_breadcrumbs)
+        self._init_breadcrumbs('List', prev_breadcrumbs)
 
-        self.serializer: Serializer = self._create_serializer(list_class)
+        self.serializer: Serializer = self._create_serializer(list_class, '[]')
 
     def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
         if not isinstance(instance, list):
@@ -93,8 +94,9 @@ class TupleSerializer(Serializer):
     def __init__(self, typing, prev_breadcrumbs: str = None):
         tuple_classes = typing.__args__
 
-        breadcrumbs = 'Tuple[{}]'.format(', '.join([tuple_class.__name__ for tuple_class in tuple_classes]))
-        self._init_breadcrumbs(breadcrumbs, prev_breadcrumbs)
+        # breadcrumbs = 'Tuple[{}]'.format(', '.join([tuple_class.__name__ for tuple_class in tuple_classes]))
+        # self._init_breadcrumbs(breadcrumbs, prev_breadcrumbs)
+        self._init_breadcrumbs('Tuple', prev_breadcrumbs)
 
         self.serializer_instances: List[Serializer] = list()
         i = 0
@@ -151,8 +153,9 @@ class UnionSerializer(Serializer):
     def __init__(self, typing, prev_breadcrumbs: str = None):
         union_classes = typing.__args__
 
-        breadcrumbs = 'Union[{}]'.format(', '.join([union_class.__name__ for union_class in union_classes]))
-        self._init_breadcrumbs(breadcrumbs, prev_breadcrumbs)
+        # breadcrumbs = 'Union[{}]'.format(', '.join([union_class.__name__ for union_class in union_classes]))
+        # self._init_breadcrumbs(breadcrumbs, prev_breadcrumbs)
+        self._init_breadcrumbs('Union', prev_breadcrumbs)
 
         i = 0
         self.serializer_instances: List[Serializer] = list()
@@ -224,7 +227,7 @@ class EnumSerializer(Serializer):
         return isclass(typing) and issubclass(typing, Enum)
 
     def __init__(self, typing: Any, prev_breadcrumbs: str = None):
-        self._init_breadcrumbs('Enum[{}]'.format(typing.__name__), prev_breadcrumbs)
+        self._init_breadcrumbs('enum.{}'.format(typing.__name__), prev_breadcrumbs)
 
         self.enum: Type[Enum] = typing
 
@@ -256,7 +259,7 @@ class DataclassSerializer(Serializer):
         return hasattr(typing, '__dataclass_fields__')
 
     def __init__(self, typing: Any, prev_breadcrumbs: str = None):
-        self._init_breadcrumbs('DC[{}]'.format(typing.__name__), prev_breadcrumbs)
+        self._init_breadcrumbs('dataclass.{}'.format(typing.__name__), prev_breadcrumbs)
 
         formatter_instances = dict()
         keys = list()
@@ -274,7 +277,7 @@ class DataclassSerializer(Serializer):
                 if parameter.default is None:
                     parameter_annotation = Optional[parameter.annotation]
 
-            formatter_instances[key] = self._create_serializer(parameter_annotation, '[{}]'.format(key))
+            formatter_instances[key] = self._create_serializer(parameter_annotation, '[\'{}\']'.format(key))
 
         self.keys = keys
         self.keys_with_default = keys_with_default
@@ -321,7 +324,7 @@ class NamedTupleSerializer(Serializer):
         return isclass(typing) and (len(typing.__bases__) == 1) and (typing.__bases__[0] == tuple)
 
     def __init__(self, typing: Any, prev_breadcrumbs: str = None):
-        self._init_breadcrumbs('NT[{}]'.format(typing.__name__), prev_breadcrumbs)
+        self._init_breadcrumbs('named_tuple.{}'.format(typing.__name__), prev_breadcrumbs)
 
         formatter_instances = dict()
         keys = list()
@@ -339,7 +342,7 @@ class NamedTupleSerializer(Serializer):
                 if parameter.default is None:
                     parameter_annotation = Optional[parameter.annotation]
 
-            formatter_instances[key] = self._create_serializer(parameter_annotation, '[{}]'.format(key))
+            formatter_instances[key] = self._create_serializer(parameter_annotation, '[\'{}\']'.format(key))
 
         self.keys = keys
         self.keys_with_default = keys_with_default

@@ -1,5 +1,5 @@
 import json
-from typing import List, Type, Any, Optional
+from typing import List, Dict, Type, Any, Optional
 from abc import ABC, abstractmethod
 
 from .exceptions import (
@@ -19,11 +19,9 @@ class _SerializersManager:
         self.__serializers.append(serializer_class)
 
     def create_serializer(self, typing: Any, breadcrumbs: str) -> 'Serializer':
-        print('creating serializer:', typing, breadcrumbs)
-
         serializer = None
 
-        for _serializer in self.__serializers:
+        for _serializer in reversed(self.__serializers):
             if _serializer.test_typing(typing):
                 serializer = _serializer(typing, breadcrumbs)
 
@@ -133,10 +131,10 @@ class BuiltinTypesSerializer(Serializer):
     def __init__(self, typing: Any, prev_breadcrumbs: str = None):
         if typing is None:
             self.type = type(None)
+            self._init_breadcrumbs('None', prev_breadcrumbs)
         else:
             self.type = typing
-
-        self._init_breadcrumbs(typing.__name__, prev_breadcrumbs)
+            self._init_breadcrumbs(typing.__name__, prev_breadcrumbs)
 
     def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
         if not isinstance(instance, self.type):
