@@ -117,7 +117,7 @@ class TupleSerializer(Serializer):
             new_list.append(item)
             i += 1
 
-        return tuple(new_list)
+        return new_list
 
     def _deserialize(self, instance: Any) -> Any:
         if not (isinstance(instance, list) or isinstance(instance, tuple)):
