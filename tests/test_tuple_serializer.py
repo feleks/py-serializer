@@ -26,7 +26,7 @@ class User:
     password: str
 
 
-def test_dict_serializer_complex():
+def test_tuple_serializer_complex():
     tuple_s = create_serializer(List[Tuple[User, Dict[str, str]]])
 
     serialized_tuple = [

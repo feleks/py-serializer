@@ -22,7 +22,7 @@ def test_list_serializer_plain():
         list_int_s.serialize([1, 2, 3, 1.1])
 
 
-def test_dict_serializer_complex():
+def test_list_serializer_complex():
     list_dict_s = create_serializer(List[Dict[str, float]])
 
     valid_serialized_list_1 = [
