@@ -29,7 +29,22 @@ class User:
 def test_tuple_serializer_complex():
     tuple_s = create_serializer(List[Tuple[User, Dict[str, str]]])
 
-    serialized_tuple = [
+    data = [
+        (
+            User('root', '228'),
+            {
+                'rank': 'admin'
+            }
+        ),
+        (
+            User('solo', '322'),
+            {
+                'rank': 'user'
+            }
+        )
+    ]
+
+    data_s = [
         [
             {
                 'login': 'root',
@@ -50,19 +65,22 @@ def test_tuple_serializer_complex():
         ]
     ]
 
-    deserialized_tuple = tuple_s.deserialize(serialized_tuple)
-    assert isinstance(deserialized_tuple[0][0], User)
-    assert isinstance(deserialized_tuple[1][0], User)
-    assert isinstance(deserialized_tuple[0][1], dict)
-    assert isinstance(deserialized_tuple[1][1], dict)
+    assert tuple_s.serialize(data) == data_s
+    assert tuple_s.deserialize(data_s) == data
 
-    assert deserialized_tuple[0][0].login == 'root'
-    assert deserialized_tuple[0][0].password == '228'
-    assert deserialized_tuple[1][0].login == 'solo'
-    assert deserialized_tuple[1][0].password == '322'
+    data_d = tuple_s.deserialize(data_s)
+    assert isinstance(data_d[0][0], User)
+    assert isinstance(data_d[1][0], User)
+    assert isinstance(data_d[0][1], dict)
+    assert isinstance(data_d[1][1], dict)
 
-    assert deserialized_tuple[0][1]['rank'] == 'admin'
-    assert deserialized_tuple[1][1]['rank'] == 'user'
+    assert data_d[0][0].login == 'root'
+    assert data_d[0][0].password == '228'
+    assert data_d[1][0].login == 'solo'
+    assert data_d[1][0].password == '322'
+
+    assert data_d[0][1]['rank'] == 'admin'
+    assert data_d[1][1]['rank'] == 'user'
 
     serialized_tuple_error_1 = [
         [
