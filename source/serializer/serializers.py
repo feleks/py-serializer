@@ -2,6 +2,7 @@ from inspect import signature, isclass
 from typing import List, Tuple, Dict, Type, Any, Union, Optional, NamedTuple
 from enum import Enum
 
+from .exceptions import SerializerError
 from .serializer_manager import Serializer
 from .utils import is_typing
 
@@ -21,15 +22,10 @@ class DictSerializer(Serializer):
         self.key_formatter: Serializer = self._create_serializer(key_class, '[key]')
         self.value_formatter: Serializer = self._create_serializer(value_class, '[value]')
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, dict):
-            return [dict]
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, dict):
-            return [dict]
-
     def _serialize(self, instance: Any) -> Any:
+        if not isinstance(instance, dict):
+            raise self._create_standard_type_error([dict], instance)
+
         new_dict = dict()
         for dict_key in instance:
             key = self.key_formatter.serialize(dict_key)
@@ -40,6 +36,9 @@ class DictSerializer(Serializer):
         return new_dict
 
     def _deserialize(self, instance: Any) -> Any:
+        if not isinstance(instance, dict):
+            raise self._create_standard_type_error([dict], instance)
+
         new_dict = dict()
         for dict_key in instance.keys():
             key = self.key_formatter.deserialize(dict_key)
@@ -61,15 +60,10 @@ class ListSerializer(Serializer):
 
         self.serializer: Serializer = self._create_serializer(list_class, '[]')
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, list):
-            return [list]
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, list):
-            return [list]
-
     def _serialize(self, instance: Any) -> Any:
+        if not isinstance(instance, list):
+            raise self._create_standard_type_error([list], instance)
+
         new_list = list()
         for list_unit in instance:
             item = self.serializer.serialize(list_unit)
@@ -78,6 +72,9 @@ class ListSerializer(Serializer):
         return new_list
 
     def _deserialize(self, instance: Any) -> Any:
+        if not isinstance(instance, list):
+            raise self._create_standard_type_error([list], instance)
+
         new_list = list()
         for list_unit in instance:
             item = self.serializer.deserialize(list_unit)
@@ -104,27 +101,15 @@ class TupleSerializer(Serializer):
             self.serializer_instances.append(self._create_serializer(tuple_class, '[{}]'.format(i)))
             i += 1
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not (isinstance(instance, list) or isinstance(instance, tuple)):
-            return [list, tuple]
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not (isinstance(instance, list) or isinstance(instance, tuple)):
-            return [list, tuple]
-
-    def _check_serialization_format_validity(self, instance: Any) -> Optional[str]:
-        if len(self.serializer_instances) != len(instance):
-            return 'Expected input tuple instance with length {}, got {}.'.format(
-                len(self.serializer_instances), len(instance)
-            )
-
-    def _check_deserialization_format_validity(self, instance: Any) -> Optional[str]:
-        if len(self.serializer_instances) != len(instance):
-            return 'Expected input tuple instance with length {}, got {}.'.format(
-                len(self.serializer_instances), len(instance)
-            )
-
     def _serialize(self, instance: Any) -> Any:
+        if not (isinstance(instance, list) or isinstance(instance, tuple)):
+            raise self._create_standard_type_error([list, tuple], instance)
+
+        if len(self.serializer_instances) != len(instance):
+            raise SerializerError('Expected input tuple instance with length {}, got {}.'.format(
+                len(self.serializer_instances), len(instance)
+            ))
+
         new_list = list()
         i = 0
         for list_unit in instance:
@@ -135,6 +120,14 @@ class TupleSerializer(Serializer):
         return tuple(new_list)
 
     def _deserialize(self, instance: Any) -> Any:
+        if not (isinstance(instance, list) or isinstance(instance, tuple)):
+            raise self._create_standard_type_error([list, tuple], instance)
+
+        if len(self.serializer_instances) != len(instance):
+            return 'Expected input tuple instance with length {}, got {}.'.format(
+                len(self.serializer_instances), len(instance)
+            )
+
         new_list = list()
         i = 0
         for list_unit in instance:
@@ -159,51 +152,28 @@ class UnionSerializer(Serializer):
 
         i = 0
         self.serializer_instances: List[Serializer] = list()
+        self.union_classes = union_classes
         for union_class in union_classes:
             self.serializer_instances.append(self._create_serializer(union_class, '[{}]'.format(i)))
             i += 1
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        final_available_types = set()
-
+    def _serialize(self, instance: Any):
         for serializer_instance in self.serializer_instances:
-            available_types = serializer_instance._check_serialization_type_validity(instance)
+            try:
+                return serializer_instance._serialize(instance)
+            except SerializerError:
+                pass
 
-            if available_types is None:
-                return None
-            else:
-                for available_type in available_types:
-                    final_available_types.add(available_type)
-        else:
-            return list(final_available_types)
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        final_available_types = set()
-
-        for serializer_instance in self.serializer_instances:
-            available_types = serializer_instance._check_deserialization_type_validity(instance)
-
-            if available_types is None:
-                return None
-            else:
-                for available_type in available_types:
-                    final_available_types.add(available_type)
-        else:
-            return list(final_available_types)
+        raise self._create_standard_type_error(self.union_classes, instance)
 
     def _deserialize(self, instance: Any):
         for serializer_instance in self.serializer_instances:
-            available_types = serializer_instance._check_deserialization_type_validity(instance)
+            try:
+                return serializer_instance._deserialize(instance)
+            except SerializerError:
+                pass
 
-            if available_types is None:
-                return serializer_instance.deserialize(instance)
-
-    def _serialize(self, instance: Any):
-        for serializer_instance in self.serializer_instances:
-            available_types = serializer_instance._check_deserialization_type_validity(instance)
-
-            if available_types is None:
-                return serializer_instance.serialize(instance)
+        raise self._create_standard_type_error(self.union_classes, instance)
 
 
 class AnySerializer(Serializer):
@@ -231,25 +201,22 @@ class EnumSerializer(Serializer):
 
         self.enum: Type[Enum] = typing
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, self.enum):
-            return [self.enum]
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, str):
-            return [str]
-
-    def _check_deserialization_format_validity(self, instance: Any) -> Optional[str]:
-        if instance not in self.enum.__members__:
-            return 'invalid enum member \'{}\', allowed members: {}.'.format(
-                instance,
-                list(self.enum.__members__)
-            )
-
     def _serialize(self, instance: Any) -> Any:
+        if not isinstance(instance, self.enum):
+            raise self._create_standard_type_error([self.enum], instance)
+
         return instance.name
 
     def _deserialize(self, instance: Any) -> Any:
+        if not isinstance(instance, str):
+            raise self._create_standard_type_error([str], instance)
+
+        if instance not in self.enum.__members__:
+            raise SerializerError('invalid enum member \'{}\', allowed members: {}.'.format(
+                instance,
+                list(self.enum.__members__)
+            ))
+
         return self.enum[instance]
 
 
@@ -284,24 +251,10 @@ class DataclassSerializer(Serializer):
         self.formatter_instances = formatter_instances
         self.dataclass = typing
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, self.dataclass):
-            return [self.dataclass]
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, dict):
-            return [dict]
-
-    def _check_deserialization_format_validity(self, instance: Any) -> Optional[str]:
-        for key in self.keys:
-            if key not in instance:
-                if key not in self.keys_with_default:
-                    return 'missing required key \'{key}\''.format(
-                        breadcrumbs=self.breadcrumbs,
-                        key=key
-                    )
-
     def _serialize(self, instance: Any) -> Any:
+        if not isinstance(instance, self.dataclass):
+            raise self._create_standard_type_error([self.dataclass], instance)
+
         final_dict = dict()
         for key in self.keys:
             formatter_instance = self.formatter_instances[key]
@@ -310,6 +263,17 @@ class DataclassSerializer(Serializer):
         return final_dict
 
     def _deserialize(self, instance: Any) -> Any:
+        if not isinstance(instance, dict):
+            raise self._create_standard_type_error([dict], instance)
+
+        for key in self.keys:
+            if key not in instance:
+                if key not in self.keys_with_default:
+                    raise SerializerError('missing required key \'{key}\''.format(
+                        breadcrumbs=self.breadcrumbs,
+                        key=key
+                    ))
+
         final_dict = dict()
         for key in self.keys:
             formatter_instance = self.formatter_instances[key]
@@ -349,24 +313,10 @@ class NamedTupleSerializer(Serializer):
         self.formatter_instances = formatter_instances
         self.named_tuple = typing
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, self.named_tuple):
-            return [self.named_tuple]
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, dict):
-            return [dict]
-
-    def _check_deserialization_format_validity(self, instance: Any) -> Optional[str]:
-        for key in self.keys:
-            if key not in instance:
-                if key not in self.keys_with_default:
-                    return 'missing required key \'{key}\''.format(
-                        breadcrumbs=self.breadcrumbs,
-                        key=key
-                    )
-
     def _serialize(self, instance: Any) -> Any:
+        if not isinstance(instance, self.named_tuple):
+            raise self._create_standard_type_error([self.named_tuple], instance)
+
         final_dict = dict()
         for key in self.keys:
             formatter_instance = self.formatter_instances[key]
@@ -375,6 +325,17 @@ class NamedTupleSerializer(Serializer):
         return final_dict
 
     def _deserialize(self, instance: Any) -> Any:
+        if not isinstance(instance, dict):
+            raise self._create_standard_type_error([dict], instance)
+
+        for key in self.keys:
+            if key not in instance:
+                if key not in self.keys_with_default:
+                    raise SerializerError('missing required key \'{key}\''.format(
+                        breadcrumbs=self.breadcrumbs,
+                        key=key
+                    ))
+
         final_dict = dict()
         for key in self.keys:
             formatter_instance = self.formatter_instances[key]

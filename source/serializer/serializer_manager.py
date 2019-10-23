@@ -1,14 +1,9 @@
 import json
 from typing import List, Dict, Type, Any, Optional
 from abc import ABC, abstractmethod
+from inspect import isclass, isfunction
 
-from .exceptions import (
-    SerializationTypeError,
-    DeserializationTypeError,
-    SerializationFormatError,
-    DeserializationFormatError,
-    MissingSerializer
-)
+from .exceptions import SerializerError
 
 
 class _SerializersManager:
@@ -29,7 +24,10 @@ class _SerializersManager:
             serializer = BuiltinTypesSerializer(typing, breadcrumbs)
 
         if serializer is None:
-            raise MissingSerializer(typing, breadcrumbs)
+            raise SerializerError(
+                '{}: serializer class for typing \'{}\' is not defined. '
+                'see serializer/serializers.py for details.'.format(breadcrumbs, typing)
+            )
 
         return serializer
 
@@ -53,18 +51,6 @@ class Serializer(ABC):
     def __init_subclass__(cls):
         _serializers_manager.register_serializer(cls)
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        return None
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        return None
-
-    def _check_serialization_format_validity(self, instance: Any) -> Optional[str]:
-        return None
-
-    def _check_deserialization_format_validity(self, instance: Any) -> Optional[str]:
-        return None
-
     @abstractmethod
     def _serialize(self, instance: Any) -> Any:
         pass
@@ -84,26 +70,22 @@ class Serializer(ABC):
 
         return _serializers_manager.create_serializer(typing, breadcrumbs)
 
+    def _create_standard_type_error(self, expected_types: List[Any], instance: Any) -> SerializerError:
+        if len(expected_types) == 1:
+            expected_types_str = 'expected type: {}'.format(expected_types[0])
+        else:
+            expected_types_str = 'expected types: {}'.format(expected_types)
+
+        return SerializerError(
+            'Validation error. {}: '
+            '{}; '
+            'got {}. '.format(self.breadcrumbs, expected_types_str, type(instance))
+        )
+
     def serialize(self, instance: Any) -> Any:
-        available_types = self._check_serialization_type_validity(instance)
-        if available_types is not None:
-            raise SerializationTypeError(available_types, type(instance), self.breadcrumbs)
-
-        format_error = self._check_serialization_format_validity(instance)
-        if format_error is not None:
-            raise SerializationFormatError(format_error)
-
         return self._serialize(instance)
 
     def deserialize(self, instance: Any) -> Any:
-        available_types = self._check_deserialization_type_validity(instance)
-        if available_types is not None:
-            raise DeserializationTypeError(available_types, type(instance), self.breadcrumbs)
-
-        format_error = self._check_deserialization_format_validity(instance)
-        if format_error:
-            raise DeserializationFormatError(format_error)
-
         return self._deserialize(instance)
 
     def serialize_json(self, instance: Any) -> str:
@@ -136,16 +118,59 @@ class BuiltinTypesSerializer(Serializer):
             self.type = typing
             self._init_breadcrumbs(typing.__name__, prev_breadcrumbs)
 
-    def _check_serialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, self.type):
-            return [self.type]
-
-    def _check_deserialization_type_validity(self, instance: Any) -> Optional[List[Any]]:
-        if not isinstance(instance, self.type):
-            return [self.type]
-
     def _serialize(self, instance: Any) -> Any:
+        if not isinstance(instance, self.type):
+            raise self._create_standard_type_error([self.type], instance)
+
         return instance
 
     def _deserialize(self, instance: Any) -> Any:
+        if not isinstance(instance, self.type):
+            raise self._create_standard_type_error([self.type], instance)
+
         return instance
+
+
+class SerializableClassesSerializer(Serializer):
+    @staticmethod
+    def test_typing(typing: Any) -> bool:
+        return (
+            isclass(typing) and
+            hasattr(typing, 'serialize') and
+            hasattr(typing, 'deserialize') and
+            isfunction(getattr(typing, 'serialize')) and
+            isfunction(getattr(typing, 'deserialize'))
+        )
+
+    def __init__(self, typing: Any, prev_breadcrumbs: str = None):
+        self._init_breadcrumbs('serializable_class.{}'.format(typing.__name__), prev_breadcrumbs)
+
+        self.type = typing
+
+    @staticmethod
+    def __ensure_serialization_valid(instance: Any):
+        instance_type = type(instance)
+        is_primitive = (instance_type is int) or \
+                       (instance_type is str) or \
+                       (instance_type is float) or \
+                       (instance_type is bool) or \
+                       (instance_type is None) or \
+                       (instance_type is type(None))
+
+        is_collection = (instance_type is dict) or \
+                        (instance_type is list)
+
+        if (not is_collection) and (not is_primitive):
+            raise SerializerError('Only primitive json serializable types can be result of '
+                                  'serialize and arg of deserialize for SerializableClasses.')
+
+        return instance
+
+    def _serialize(self, instance: Any) -> Any:
+        if not isinstance(instance, self.type):
+            raise self._create_standard_type_error([self.type], instance)
+
+        return self.__ensure_serialization_valid(instance.serialize())
+
+    def _deserialize(self, instance: Any) -> Any:
+        return self.type.deserialize(self.__ensure_serialization_valid(instance))
