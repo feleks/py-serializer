@@ -243,4 +243,7 @@ user: User = user_serializer.deserialize(user_serialized)
 assert user.two_factor_auth.secret_key == '3DWR32GS'
 assert user.two_factor_auth.picture_url == '9d2fa0ccf73d11e9b740784f439c7d4d'
 ```
+#### Creating your own serializer
+```python
 
+``` 
