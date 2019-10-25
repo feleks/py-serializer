@@ -213,7 +213,7 @@ class EnumSerializer(Serializer):
             raise self._create_standard_type_error([str], instance)
 
         if instance not in self.enum.__members__:
-            raise SerializerError('invalid enum member \'{}\', allowed members: {}.'.format(
+            raise SerializerError('Invalid enum member \'{}\', allowed members: {}.'.format(
                 instance,
                 list(self.enum.__members__)
             ))
