@@ -160,7 +160,8 @@ class SerializableClassSerializer(Serializer):
                        (instance_type is type(None))
 
         is_collection = (instance_type is dict) or \
-                        (instance_type is list)
+                        (instance_type is list) or \
+                        (instance_type is tuple)
 
         if (not is_collection) and (not is_primitive):
             raise SerializerError('Only primitive json serializable types can be result of '
