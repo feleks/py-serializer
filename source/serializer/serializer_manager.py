@@ -1,8 +1,9 @@
 import json
-from typing import List, Dict, Type, Any, Optional
+from typing import List, Type, Any
 from abc import ABC, abstractmethod
 from inspect import isclass, isfunction
 
+from .serializable_class import SerializableClass
 from .exceptions import SerializerError
 
 
@@ -25,8 +26,8 @@ class _SerializersManager:
 
         if serializer is None:
             raise SerializerError(
-                '{}: serializer class for typing \'{}\' is not defined. '
-                'see serializer/serializers.py for details.'.format(breadcrumbs, typing)
+                '{}: serializer class for typing \'{}\' is not defined. You can write one. '
+                'See serializer/serializers.py for details.'.format(breadcrumbs, typing)
             )
 
         return serializer
@@ -131,16 +132,17 @@ class BuiltinTypesSerializer(Serializer):
         return instance
 
 
-class SerializableClassesSerializer(Serializer):
+class SerializableClassSerializer(Serializer):
     @staticmethod
     def test_typing(typing: Any) -> bool:
-        return (
-            isclass(typing) and
-            hasattr(typing, 'serialize') and
-            hasattr(typing, 'deserialize') and
-            isfunction(getattr(typing, 'serialize')) and
-            isfunction(getattr(typing, 'deserialize'))
-        )
+        return isclass(typing) and issubclass(typing, SerializableClass)
+        # return (
+        #     isclass(typing) and
+        #     hasattr(typing, 'serialize') and
+        #     hasattr(typing, 'deserialize') and
+        #     isfunction(getattr(typing, 'serialize')) and
+        #     isfunction(getattr(typing, 'deserialize'))
+        # )
 
     def __init__(self, typing: Any, prev_breadcrumbs: str = None):
         self._init_breadcrumbs('serializable_class.{}'.format(typing.__name__), prev_breadcrumbs)

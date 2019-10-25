@@ -1,9 +1,7 @@
 import pytest
-from typing import List, Tuple, Optional, Union, Dict, NamedTuple, Any
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
+from typing import Tuple
 
-from serializer import create_serializer
+from serializer import create_serializer, SerializableClass
 from serializer.exceptions import SerializerError
 
 
@@ -19,7 +17,7 @@ def test_wrong_class():
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-class SerializableClass1:
+class SerializableClass1(SerializableClass):
     def __init__(self, a: int, b: str):
         self.a = a
         self.b = b
@@ -32,7 +30,7 @@ class SerializableClass1:
         return SerializableClass1(instance[0], instance[1])
 
 
-class SerializableClass1Error:
+class SerializableClass1Error(SerializableClass):
     def __init__(self, a: int, b: str):
         self.a = a
         self.b = b
@@ -81,7 +79,7 @@ def test_simple_class():
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-class BaseClass:
+class BaseClass(SerializableClass):
     def serialize(self) -> dict:
         return {
             'a': getattr(self, 'a', None)
@@ -114,38 +112,38 @@ def test_inherited_class():
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-class AbstractClass(ABC):
-    def __init__(self, a: int):
-        self.a = a
-
-    @abstractmethod
-    def serialize(self) -> Any:
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def deserialize(instance: Any) -> 'AbstractClass':
-        pass
-
-
-class ImplementedClass(AbstractClass):
-    def serialize(self) -> str:
-        return str(self.a)
-
-    @staticmethod
-    def deserialize(instance: Any) -> 'ImplementedClass':
-        return ImplementedClass(int(instance))
-
-
-def test_abstract_class():
-    serializable_class_s = create_serializer(ImplementedClass)
-
-    a = ImplementedClass(1)
-
-    a_s = serializable_class_s.serialize(a)
-
-    assert str(a.a) == a_s
-
-    a_d = serializable_class_s.deserialize(a_s)
-
-    assert a.a == a_d.a
+# class AbstractClass(ABC, SerializableClass):
+#     def __init__(self, a: int):
+#         self.a = a
+#
+#     @abstractmethod
+#     def serialize(self) -> Any:
+#         pass
+#
+#     @staticmethod
+#     @abstractmethod
+#     def deserialize(instance: Any) -> 'AbstractClass':
+#         pass
+#
+#
+# class ImplementedClass(AbstractClass):
+#     def serialize(self) -> str:
+#         return str(self.a)
+#
+#     @staticmethod
+#     def deserialize(instance: Any) -> 'ImplementedClass':
+#         return ImplementedClass(int(instance))
+#
+#
+# def test_abstract_class():
+#     serializable_class_s = create_serializer(ImplementedClass)
+#
+#     a = ImplementedClass(1)
+#
+#     a_s = serializable_class_s.serialize(a)
+#
+#     assert str(a.a) == a_s
+#
+#     a_d = serializable_class_s.deserialize(a_s)
+#
+#     assert a.a == a_d.a
