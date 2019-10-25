@@ -33,14 +33,14 @@ def test_after_serializer_defined():
             self._init_breadcrumbs('Datetime', prev_breadcrumbs)
 
         def _serialize(self, instance: datetime):
-            return instance.replace(tzinfo=timezone.utc).isoformat()
+            return instance.isoformat()
 
         def _deserialize(self, instance: str) -> datetime:
             return parse(instance)
 
     user_serializer = create_serializer(User)
 
-    user = User('feleks', '123', datetime.now().replace(tzinfo=timezone.utc))
+    user = User('feleks', '123', datetime.now())
     user_serialized = user_serializer.serialize(user)
 
     assert isinstance(user_serialized['creation_date'], str)
@@ -48,5 +48,6 @@ def test_after_serializer_defined():
     user_deserialized: User = user_serializer.deserialize(user_serialized)
 
     assert isinstance(user_deserialized.creation_date, datetime)
+    assert user.creation_date == user_deserialized.creation_date
     assert user == user_deserialized
     assert user is not user_deserialized

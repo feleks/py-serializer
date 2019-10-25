@@ -245,5 +245,53 @@ assert user.two_factor_auth.picture_url == '9d2fa0ccf73d11e9b740784f439c7d4d'
 ```
 #### Creating your own serializer
 ```python
+from datetime import datetime, timezone
+from dateutil.parser import parse
+from dataclasses import dataclass
 
-``` 
+from serializer import create_serializer, Serializer
+from serializer.exceptions import SerializerError
+
+
+@dataclass
+class User:
+    login: str
+    password: str
+    creation_date: datetime
+
+
+# Raises:
+# dataclass.User['creation_date']: serializer class for typing '<class 'datetime.datetime'>' is not defined.
+# as there is not serializer for datetime
+create_serializer(User)
+
+
+class DatetimeSerializer(Serializer):
+    @staticmethod
+    def test_typing(typing: datetime) -> bool:
+        return typing is datetime
+
+    def __init__(self, typing, prev_breadcrumbs: str = None):
+        self._init_breadcrumbs('Datetime', prev_breadcrumbs)
+
+    def _serialize(self, instance: datetime):
+        return instance.replace(tzinfo=timezone.utc).isoformat()
+
+    def _deserialize(self, instance: str) -> datetime:
+        return parse(instance)
+
+# Serializer for datetime is not defined.  
+user_serializer = create_serializer(User)
+
+user = User('feleks', '123', datetime.now().replace(tzinfo=timezone.utc))
+user_serialized = user_serializer.serialize(user)
+
+assert isinstance(user_serialized['creation_date'], str)
+
+user_deserialized: User = user_serializer.deserialize(user_serialized)
+
+assert isinstance(user_deserialized.creation_date, datetime)
+assert user.creation_date == user_deserialized.creation_date
+assert user == user_deserialized
+assert user is not user_deserialized
+```
