@@ -1,5 +1,6 @@
 import pytest
 from typing import Tuple
+from dataclasses import dataclass
 
 from serializer import create_serializer, SerializableClass
 from serializer.exceptions import SerializerError
@@ -30,7 +31,7 @@ class SerializableClass1(SerializableClass):
         return SerializableClass1(instance[0], instance[1])
 
 
-class SerializableClass1Error(SerializableClass):
+class SerializableClass1Error:
     def __init__(self, a: int, b: str):
         self.a = a
         self.b = b
@@ -45,16 +46,14 @@ class SerializableClass1Error(SerializableClass):
 
 def test_simple_class():
     serializable_class_s = create_serializer(SerializableClass1)
-    serializable_class_error_s = create_serializer(SerializableClass1Error)
 
     a = SerializableClass1(1, '1')
     b = SerializableClass1(2, '2')
-    c = SerializableClass1Error(2, '2')
 
     a_s = serializable_class_s.serialize(a)
     b_s = serializable_class_s.serialize(b)
     with pytest.raises(SerializerError):
-        serializable_class_error_s.serialize(c)
+        serializable_class_error_s = create_serializer(SerializableClass1Error)
 
     assert a.a == a_s[0]
     assert a.b == a_s[1]
@@ -63,17 +62,11 @@ def test_simple_class():
 
     a_d = serializable_class_s.deserialize(a_s)
     b_d = serializable_class_s.deserialize(b_s)
-    c_d = serializable_class_error_s.deserialize(a_s)
-
-    with pytest.raises(SerializerError):
-        serializable_class_s.deserialize((1, '2'))
 
     assert a.a == a_d.a
     assert a.b == a_d.b
     assert b.a == b_d.a
     assert b.b == b_d.b
-    assert c_d.a == a_d.a
-    assert c_d.b == a_d.b
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -111,39 +104,37 @@ def test_inherited_class():
 
 # ----------------------------------------------------------------------------------------------------------------------
 
+class TwoFactorAuth(SerializableClass):
+    def __init__(self, secret_key: str, picture_url: str):
+        self.secret_key = secret_key
+        self.picture_url = picture_url
 
-# class AbstractClass(ABC, SerializableClass):
-#     def __init__(self, a: int):
-#         self.a = a
-#
-#     @abstractmethod
-#     def serialize(self) -> Any:
-#         pass
-#
-#     @staticmethod
-#     @abstractmethod
-#     def deserialize(instance: Any) -> 'AbstractClass':
-#         pass
-#
-#
-# class ImplementedClass(AbstractClass):
-#     def serialize(self) -> str:
-#         return str(self.a)
-#
-#     @staticmethod
-#     def deserialize(instance: Any) -> 'ImplementedClass':
-#         return ImplementedClass(int(instance))
-#
-#
-# def test_abstract_class():
-#     serializable_class_s = create_serializer(ImplementedClass)
-#
-#     a = ImplementedClass(1)
-#
-#     a_s = serializable_class_s.serialize(a)
-#
-#     assert str(a.a) == a_s
-#
-#     a_d = serializable_class_s.deserialize(a_s)
-#
-#     assert a.a == a_d.a
+    def serialize(self) -> Tuple[str, str]:
+        return self.secret_key, self.picture_url
+
+    @staticmethod
+    def deserialize(instance: Tuple[str, str]) -> 'TwoFactorAuth':
+        return TwoFactorAuth(instance[0], instance[1])
+
+
+@dataclass
+class User:
+    id: int
+    login: str
+    password: str
+    two_factor_auth: TwoFactorAuth
+
+
+def test_complex_class():
+    user_serializer = create_serializer(User)
+
+    user_serialized = {
+        'id': 1,
+        'login': 'feleks',
+        'password': '228',
+        'two_factor_auth': ('3DWR32GS', '9d2fa0ccf73d11e9b740784f439c7d4d')
+    }
+
+    user: User = user_serializer.deserialize(user_serialized)
+    assert user.two_factor_auth.secret_key == '3DWR32GS'
+    assert user.two_factor_auth.picture_url == '9d2fa0ccf73d11e9b740784f439c7d4d'
