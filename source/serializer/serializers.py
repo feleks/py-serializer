@@ -1,6 +1,7 @@
 from inspect import signature, isclass
-from typing import List, Tuple, Dict, Type, Any, Union, Optional, NamedTuple
+from typing import List, Tuple, Dict, Type, Any, Union, Optional
 from enum import Enum
+from dataclasses import is_dataclass
 
 from .exceptions import SerializerError
 from .serializer_manager import Serializer
@@ -223,7 +224,8 @@ class EnumSerializer(Serializer):
 class DataclassSerializer(Serializer):
     @staticmethod
     def test_typing(typing: Any) -> bool:
-        return hasattr(typing, '__dataclass_fields__')
+        return  is_dataclass(typing)
+        # return hasattr(typing, '__dataclass_fields__')
 
     def __init__(self, typing: Any, prev_breadcrumbs: str = None):
         self._init_breadcrumbs('dataclass.{}'.format(typing.__name__), prev_breadcrumbs)
