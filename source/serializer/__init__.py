@@ -1,2 +1,3 @@
 from serializer.serializer_manager import create_serializer
+from serializer.serializable_class import SerializableClass
 import serializer.serializers
