@@ -279,8 +279,7 @@ class DatetimeSerializer(Serializer):
 
     def _deserialize(self, instance: str) -> datetime:
         return parse(instance)
-
-# Serializer for datetime is not defined.  
+  
 user_serializer = create_serializer(User)
 
 user = User('feleks', '123', datetime.now().replace(tzinfo=timezone.utc))
